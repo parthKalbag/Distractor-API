@@ -1,9 +1,14 @@
 from flask import Flask, request
 import nltk
+from collections import OrderedDict
 nltk.download('wordnet')
 from nltk.corpus import wordnet as wn
 import requests
+from sense2vec import Sense2Vec
+from summarizer import Summarizer
 app = Flask(__name__)
+
+s2v = Sense2Vec().from_disk('s2v_old')
 
 def get_wordsense(word):
     word= word.lower()
@@ -62,3 +67,34 @@ def get_distractors_conceptnet():
                 distractor_list.append({"name": word2})
                     
     return {"distractors" : distractor_list}
+
+@app.route('/api/sense2vec', methods=['POST'])
+def sense2vec_get_words():
+    output = []
+    word = request.args.get('word')
+    word = word.lower()
+    word = word.replace(" ", "_")
+
+    sense = s2v.get_best_sense(word)
+    most_similar = s2v.most_similar(sense, n=20)
+
+    for each_word in most_similar:
+        append_word = each_word[0].split("|")[0].replace("_", " ").lower()
+        if append_word.lower() != word:
+            output.append(append_word.title())
+
+    out = list(OrderedDict.fromkeys(output))
+    distractor_list = []
+
+    for distractor in out:
+        distractor_list.append({"name": distractor})
+    return {"distractors": distractor_list}
+
+@app.route('/api/summary', methods=['POST'])
+def summary():
+    full_text = request.args.get('full_text')
+    model = Summarizer()
+    result = model(full_text, min_length=350, max_length = 1200 , ratio = 0.4)
+    summarized_text = ''.join(result)
+    
+    return {"summary": summarized_text}
