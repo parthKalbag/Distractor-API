@@ -5,9 +5,13 @@ nltk.download('wordnet')
 from nltk.corpus import wordnet as wn
 import requests
 from sense2vec import Sense2Vec
+from summarizer import Summarizer
+
 app = Flask(__name__)
 
+model = Summarizer()
 s2v = Sense2Vec().from_disk('s2v_old')
+model_name = 'tuner007/pegasus_paraphrase'
 
 def get_wordsense(word):
     word= word.lower()
@@ -23,7 +27,6 @@ def get_wordsense(word):
 @app.route('/api/wordnet', methods=['POST'])
 def get_distractors_wordnet():
     word = str(request.args.get('word'))
-    print(word)
     syn = get_wordsense(word)
     distractors=[]
     word= word.lower()
@@ -88,3 +91,14 @@ def sense2vec_get_words():
     for idx, distractor in enumerate(out):
         if idx == 2:
             return {"distractor": distractor}
+
+@app.route('/api/summary', methods=['POST'])
+def summary():
+    text = request.args.get('text')
+    result = model(text, min_length=60, max_length = 700 , ratio = 0.4)
+    summarized_text = ''.join(result)
+
+    return {"summary": summarized_text}
+
+if __name__ == '__main__':
+    app.run(port=5000)
